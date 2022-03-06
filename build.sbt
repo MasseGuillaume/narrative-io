@@ -7,12 +7,15 @@ lazy val server = project
   .settings(
     libraryDependencies ++= {
       val zHttpVersion = "2.0.0-RC4"
+      val zioVersion = "2.0.0-RC2"
 
       Seq(
         "io.d11" %% "zhttp" % zHttpVersion,
-        "io.d11" %% "zhttp-test" % zHttpVersion % Test
+        "dev.zio" %% "zio-test" % zioVersion % Test,
+        "dev.zio" %% "zio-test-sbt" % zioVersion % Test
       )
-    }
+    },
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
 
 lazy val loadtest = project

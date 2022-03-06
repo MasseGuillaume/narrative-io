@@ -2,9 +2,10 @@
 
 ```bash
 sbt
-server/reStart
-
+server/reStart # Running server
 loadtest/GatlingIt/test # Load Tests
+
+server/test # Unit test
 ```
 
 ```bash
