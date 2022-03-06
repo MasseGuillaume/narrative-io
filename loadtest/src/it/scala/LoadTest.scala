@@ -12,12 +12,12 @@ class LoadTest extends Simulation {
 
   val basic = 
     scenario("Basic")
-      .exec(http("request_1").get("/text"))
+      .exec(http("request_1").get("/analytics").queryParam("timestamp", "0"))
       .pause(5)
 
   setUp(
     basic.inject(
-      constantUsersPerSec(1000).during(1.minute)
+      constantUsersPerSec(1).during(1.second)
     )
   ).protocols(httpProtocol)
 }

@@ -8,7 +8,12 @@ object Spec extends DefaultRunnableSpec {
   def spec = suite("http") (
     testM("should be ok") {
       val req = Request(
-        url = URL(path = Path() / "text")
+        url = URL(
+          path = Path() / "analytics",
+          queryParams = Map(
+            "timestamp" -> List("0")
+          )
+        )
       )
       assertM(app(req).map(_.status))(equalTo(Status.OK))
     }
