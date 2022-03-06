@@ -1,13 +1,11 @@
 # Narrative Code Challenge
 
-Terminal 1:
-
 ```bash
 sbt
 server/reStart
-```
 
-Terminal 2:
+loadtest/GatlingIt/test # Load Tests
+```
 
 ```bash
 curl http://localhost:8090/text
