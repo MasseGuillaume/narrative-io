@@ -1,9 +1,11 @@
+package narrative
+
 import zio.test._
 import zhttp.http._
 import zio.test.Assertion._
 
 object Spec extends DefaultRunnableSpec {
-  val app = ServerMain.app
+  val app = ServerMain.app.provideSomeLayer(ServerMain.env)
   
   def spec = suite("http") (
     testM("should be ok") {

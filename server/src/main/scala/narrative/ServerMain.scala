@@ -1,3 +1,5 @@
+package narrative
+
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -10,27 +12,33 @@ import scala.util.Try
 
 object ServerMain extends zio.App {
 
-  val app: UHttpApp = {
+  val env: ULayer[EventStore] = 
+    ZLayer.succeed(EventStore.inMemory)
+
+  val app: Http[EventStore, Nothing, Request, Response] = {
     val analytics = "analytics"
 
     Http.collectZIO {
       case req @ (Method.GET -> Path() / analytics) =>
-        timestamp(req).fold(
-          msg => Response.text(msg).copy(status = Status.BAD_REQUEST),
-          date => Response.text(date.toString)
+        timestamp(req).foldM(
+          badRequest,
+          date => 
+            EventStore(_.stats(date)).map(stats => Response.text(stats.toString))
         )
 
       case req @ (Method.POST -> Path() / analytics) =>
         val params = timestamp(req).zip(user(req)).zip(event(req))
-        
-        params.fold(
-          msg => Response.text(msg).copy(status = Status.BAD_REQUEST),
-          (time, user, event) => {
-            Response.text(time.toString)
-          }
+
+        params.foldM(
+          badRequest,
+          (time, user, event) =>
+            EventStore(_.append(time, user, event)).map(_ => Response(Status.NO_CONTENT))
         )
     }
   }
+
+  private def badRequest[R, E](msg: String): ZIO[R, E, Response] =
+    ZIO.succeed(Response.text(msg).copy(status = Status.BAD_REQUEST))
 
   private def param[T](
       paramName: String
@@ -45,13 +53,8 @@ object ServerMain extends zio.App {
       }
   }
 
-  case class User(userId: String)
   private def user(request: Request): IO[String, User] =
     param("user")(v => ZIO.succeed(User(v)))(request)
-
-  enum Event {
-    case Click, Impression
-  }
 
   private def event(request: Request): IO[String, Event] = {
     val click = "click"
@@ -70,8 +73,7 @@ object ServerMain extends zio.App {
     val paramName = "timestamp"
     param(paramName)(h =>
       ZIO
-        .succeed(h)
-        .mapAttempt(_.toLong)
+        .attempt(h.toLong)
         .mapError { case e: NumberFormatException =>
           s"query parameter $paramName, expected number got $h"
         }
@@ -83,5 +85,5 @@ object ServerMain extends zio.App {
   }
 
   final def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+    Server.start(8090, app.provideSomeLayer(env)).exitCode
 }
