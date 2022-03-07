@@ -9,11 +9,12 @@ import java.time.ZoneId
 import java.lang.NumberFormatException
 
 import scala.util.Try
+import java.nio.charset.StandardCharsets.UTF_8
 
 object ServerMain extends zio.App {
 
-  val env: ULayer[EventStore] = 
-    ZLayer.succeed(EventStore.inMemory)
+  val env =
+    ZLayer.fromEffect(EventStore.inMemory)
 
   val app: Http[EventStore, Nothing, Request, Response] = {
     val analytics = "analytics"
@@ -22,8 +23,10 @@ object ServerMain extends zio.App {
       case req @ (Method.GET -> Path() / analytics) =>
         timestamp(req).foldM(
           badRequest,
-          date => 
-            EventStore(_.stats(date)).map(stats => Response.text(stats.toString))
+          date =>
+            EventStore(_.stats(date)).map(stats =>
+              Response.text(stats.toString, UTF_8)
+            )
         )
 
       case req @ (Method.POST -> Path() / analytics) =>
@@ -32,7 +35,9 @@ object ServerMain extends zio.App {
         params.foldM(
           badRequest,
           (time, user, event) =>
-            EventStore(_.append(time, user, event)).map(_ => Response(Status.NO_CONTENT))
+            EventStore(_.append(time, user, event)).map(_ =>
+              Response(Status.NO_CONTENT)
+            )
         )
     }
   }
@@ -54,18 +59,20 @@ object ServerMain extends zio.App {
   }
 
   private def user(request: Request): IO[String, User] =
-    param("user")(v => ZIO.succeed(User(v)))(request)
+    param("user")(v => ZIO.succeed(User.fromString(v)))(request)
 
   private def event(request: Request): IO[String, Event] = {
     val click = "click"
     val impression = "impression"
 
-    param("user") {
-      case `click`      => ZIO.succeed(Event.Click)
-      case `impression` => ZIO.succeed(Event.Impression)
+    param("event") {
+      case `click` =>
+        ZIO.succeed(Event.Click)
+      case `impression` =>
+        ZIO.succeed(Event.Impression)
       case other =>
-        ZIO.fail(s"""unknown event type: $other, expected: ${Event.values
-          .mkString(", ")}""")
+        val values = Event.values.map(_.toString.toLowerCase).mkString(", ")
+        ZIO.fail(s"""unknown event type: $other, expected: $values""")
     }(request)
   }
 
