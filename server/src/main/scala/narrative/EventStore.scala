@@ -34,19 +34,10 @@ object EventStore extends zio.Accessible[EventStore] {
   val inMemory: Task[EventStore] = {
     Ref.make(List.empty[(OffsetDateTime, User, Event)]).map(log =>
       new EventStore {
-        def append(time: OffsetDateTime, user: User, event: Event): UIO[Unit] = {
-          // println("append")
-          for {
-            _ <- log.update((time, user, event) :: _)
-            l <- log.get
-          } yield {
-            println(l)
-            ()
-          }
-        }
-
+        def append(time: OffsetDateTime, user: User, event: Event): UIO[Unit] =
+          log.update((time, user, event) :: _).unit
+          
         def stats(time: OffsetDateTime): UIO[Stats] = {
-
           def overlapHour(other: OffsetDateTime): Boolean = {
             time.getYear == other.getYear &&
             time.getMonth == other.getMonth &&
@@ -54,11 +45,7 @@ object EventStore extends zio.Accessible[EventStore] {
             time.getHour == other.getHour
           }
 
-
           log.get.map{events =>
-            println("stats")
-            println(events)
-
             events.filter(e => overlapHour(e._1)).foldLeft((Set.empty[User], Stats.empty)) {
               case ((knownUsers, stats), (_, user, event)) =>
 
