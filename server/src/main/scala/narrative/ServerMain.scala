@@ -13,9 +13,6 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 object ServerMain extends zio.App {
 
-  val env =
-    ZLayer.fromEffect(EventStore.inMemory)
-
   val app: Http[EventStore, Nothing, Request, Response] = {
     val analytics = "analytics"
 
@@ -91,6 +88,10 @@ object ServerMain extends zio.App {
     )(request)
   }
 
-  final def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.provideSomeLayer(env)).exitCode
+  final def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    for {
+      store <- EventStore.inMemory.orDie
+      code <- Server.start(8090, app.provideEnvironment(ZEnvironment(store))).exitCode
+    } yield code
+  }
 }

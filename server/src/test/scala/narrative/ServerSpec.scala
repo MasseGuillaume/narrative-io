@@ -11,33 +11,36 @@ import java.time.OffsetDateTime
 import java.nio.charset.StandardCharsets.UTF_8
 
 object ServerSpec extends DefaultRunnableSpec {
-  val app = ServerMain.app.provideSomeLayer(ServerMain.env)
-  
+  val getServer = 
+    EventStore.inMemory.map(store =>
+      ServerMain.app.provideEnvironment(ZEnvironment(store))
+    )
+
   def spec = suite("http")(
-    // testM("empty stats") {
-    //   for {
-    //     now <- ZIO.effectTotal(OffsetDateTime.now)
-    //     stats <- getStats(now)
-    //   } yield assert(stats)(equalTo(Stats.empty.toString))
-    // },
+    testM("empty stats") {
+      for {
+        server <- getServer
+        now <- ZIO.effectTotal(OffsetDateTime.now)
+        stats <- getStats(server)(now)
+      } yield assert(stats)(equalTo(Stats.empty.toString))
+    },
     testM("with events") {
       for {
+        server <- getServer
         now <- ZIO.effectTotal(OffsetDateTime.now)
-        _ <- appendEvent(now, User.fromString("foo"), Event.Click)
+        _ <- appendEvent(server)(now, User.fromString("foo"), Event.Click)
         
         _ <- Clock.ClockLive.sleep(1.second)
-        stats <- getStats(now)//.repeatWhile(_ == Stats.empty.toString)
+        stats <- getStats(server)(now)//.repeatWhile(_ == Stats.empty.toString)
       } yield {
         assert(stats)(
           equalTo(Stats(uniqueUsers = 1L, clicks = 1L, impressions = 0L).toString)
         )
       }
-
-
     }
   )
 
-  private def appendEvent(
+  private def appendEvent(server: UHttpApp)(
       time: OffsetDateTime,
       user: User,
       event: Event
@@ -54,10 +57,10 @@ object ServerSpec extends DefaultRunnableSpec {
       )
     )
 
-    app(req).mapError(_ => new Exception("???")).unit
+    server(req).mapError(_ => new Exception("???")).unit
   }
 
-  private def getStats(time: OffsetDateTime): Task[String] = {
+  private def getStats(server: UHttpApp)(time: OffsetDateTime): Task[String] = {
     val req = Request(
       url = URL(
         path = Path() / "analytics",
@@ -67,9 +70,8 @@ object ServerSpec extends DefaultRunnableSpec {
       )
     )
 
-    app(req)
+    server(req)
       .mapError(_ => new Exception("???"))
       .flatMap(_.data.toByteBuf.map(_.toString(UTF_8)))
   }
-
 }
