@@ -29,14 +29,27 @@ object ServerSpec extends DefaultRunnableSpec {
         server <- getServer
         now <- ZIO.effectTotal(OffsetDateTime.now)
         _ <- appendEvent(server)(now, User.fromString("foo"), Event.Click)
-        
-        _ <- Clock.ClockLive.sleep(1.second)
-        stats <- getStats(server)(now)//.repeatWhile(_ == Stats.empty.toString)
+        stats <- getStats(server)(now)
       } yield {
         assert(stats)(
           equalTo(Stats(uniqueUsers = 1L, clicks = 1L, impressions = 0L).toString)
         )
       }
+    },
+    testM("bad timestamp") {
+      val req = Request(
+        url = URL(
+          path = Path() / "analytics",
+          queryParams = Map(
+            "timestamp" -> List("foo")
+          )
+        )
+      )
+
+      for {
+        server <- getServer
+        status <- server(req).mapError(notFound).map(_.status)
+      } yield assert(status)(equalTo(Status.BAD_REQUEST))
     }
   )
 
@@ -57,7 +70,7 @@ object ServerSpec extends DefaultRunnableSpec {
       )
     )
 
-    server(req).mapError(_ => new Exception("???")).unit
+    server(req).mapError(notFound).unit
   }
 
   private def getStats(server: UHttpApp)(time: OffsetDateTime): Task[String] = {
@@ -70,8 +83,12 @@ object ServerSpec extends DefaultRunnableSpec {
       )
     )
 
-    server(req)
-      .mapError(_ => new Exception("???"))
-      .flatMap(_.data.toByteBuf.map(_.toString(UTF_8)))
+    server(req).mapError(notFound).flatMap(dataAsString)
   }
+
+  private def dataAsString(response: Response): Task[String] =
+    response.data.toByteBuf.map(_.toString(UTF_8))
+
+  private def notFound(ex: Option[Throwable]): Throwable =
+    ex.getOrElse(new Exception("path not found"))
 }

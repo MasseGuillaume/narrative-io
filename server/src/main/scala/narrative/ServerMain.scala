@@ -82,8 +82,7 @@ object ServerMain extends zio.App {
           s"query parameter $paramName, expected number got $h"
         }
         .map(millis =>
-          OffsetDateTime
-            .ofInstant(Instant.ofEpochMilli(millis), ZoneId.of("GMT"))
+          OffsetDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.of("GMT"))
         )
     )(request)
   }

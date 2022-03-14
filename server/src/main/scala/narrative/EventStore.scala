@@ -24,7 +24,6 @@ object Stats {
   def empty: Stats = Stats(0L, 0L, 0L)
 }
 
-
 trait EventStore {
   def append(time: OffsetDateTime, user: User, event: Event): UIO[Unit]
   def stats(time: OffsetDateTime): UIO[Stats]
@@ -46,18 +45,20 @@ object EventStore extends zio.Accessible[EventStore] {
           }
 
           log.get.map{events =>
-            events.filter(e => overlapHour(e._1)).foldLeft((Set.empty[User], Stats.empty)) {
-              case ((knownUsers, stats), (_, user, event)) =>
+            events
+              .filter(e => overlapHour(e._1))
+              .foldLeft((Set.empty[User], Stats.empty)) {
+                case ((knownUsers, stats), (_, user, event)) =>
 
-                (
-                  knownUsers + user,
-                  stats.copy(
-                    uniqueUsers = stats.uniqueUsers + (if (!knownUsers.contains(user)) 1 else 0),
-                    clicks = stats.clicks + (if (event == Event.Click) 1 else 0),
-                    impressions = stats.impressions + (if (event == Event.Impression) 1 else 0)
+                  (
+                    knownUsers + user,
+                    stats.copy(
+                      uniqueUsers = stats.uniqueUsers + (if (!knownUsers.contains(user)) 1 else 0),
+                      clicks = stats.clicks + (if (event == Event.Click) 1 else 0),
+                      impressions = stats.impressions + (if (event == Event.Impression) 1 else 0)
+                    )
                   )
-                )
-            }._2
+              }._2
           }
         }
       }
