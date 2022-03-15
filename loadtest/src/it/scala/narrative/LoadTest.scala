@@ -27,9 +27,8 @@ class LoadTest extends Simulation {
 
   // We want 95% of the traffic within the last hour (~2 STD)
   def startTime: Long = {
-    // TODO double check the math here
-    val oneHourInMillis = TimeUnit.HOURS.toMillis(1L)
-    delta - Math.floor(Math.abs(Random.nextGaussian) * oneHourInMillis / 2L).toLong
+    val oneHourInMillis = TimeUnit.HOURS.toMillis(1L).toDouble
+    delta - Math.floor(Math.abs(Random.nextGaussian) * oneHourInMillis / 2.0).toLong
   }
 
   // Someone looking at the latest analytics trends
